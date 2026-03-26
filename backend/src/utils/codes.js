@@ -8,6 +8,5 @@ export function generateCode(length = 6) {
 }
 
 export function generatePlayerId() {
-  // Enkelt, tillräckligt för MVP
   return `p_${Math.random().toString(36).slice(2, 10)}`;
 }

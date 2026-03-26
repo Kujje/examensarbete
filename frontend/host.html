@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="sv">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Host – Live Quiz</title>
+    <link rel="stylesheet" href="./assets/app.css" />
+  </head>
+  <body>
+    <h1>Host (Live Quiz)</h1>
+
+    <div class="card">
+      <div class="row">
+        <select id="quizSelect" style="min-width: 360px"></select>
+        <button id="refreshQuizzes">Refresh quizzes</button>
+        <button id="createSession" class="primary">Create Session</button>
+      </div>
+      <div class="muted" style="margin-top: 8px;">
+        Visar public quizzes från API.
+      </div>
+
+      <div id="sessionInfo" class="muted" style="margin-top: 10px;"></div>
+    </div>
+
+    <div class="card">
+      <h3>Lobby / Game</h3>
+      <div class="row">
+        <button id="startBtn" class="primary" disabled>Start (Host)</button>
+        <button id="tickBtn" disabled>Tick</button>
+        <span class="badge" id="statusBadge">status: -</span>
+        <span class="badge" id="timerBadge">timeLeft: -</span>
+      </div>
+
+      <hr />
+
+      <div id="questionBox" class="card" style="border-style: dashed;">
+        <div class="muted">Ingen fråga än.</div>
+      </div>
+
+      <h4>Players</h4>
+      <ul id="players" class="list"></ul>
+    </div>
+
+    <div class="card" style="border-style: dashed;">
+  <div id="leaderboard" class="muted">Leaderboard laddas...</div>
+</div>
+
+    <script type="module" src="./assets/host.js"></script>
+  </body>
+</html>

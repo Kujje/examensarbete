@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="sv">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Player – Live Quiz</title>
+    <link rel="stylesheet" href="./assets/app.css" />
+  </head>
+  <body>
+    <h1>Player</h1>
+
+    <div class="card">
+      <div class="row">
+        <input id="joinCode" placeholder="joinCode (t.ex. K3YXH5)" />
+        <input id="name" placeholder="Ditt namn" />
+        <button id="joinBtn" class="primary">Join</button>
+      </div>
+
+      <div class="row" style="margin-top: 10px;">
+        <button id="readyBtn" disabled>Ready</button>
+        <span class="badge" id="statusBadge">status: -</span>
+        <span class="badge" id="timerBadge">timeLeft: -</span>
+      </div>
+
+      <div id="info" class="muted" style="margin-top: 10px;"></div>
+    </div>
+
+    <div class="card">
+      <h3>Fråga</h3>
+      <div id="questionBox" class="muted">Ingen fråga än.</div>
+      <div id="answers" class="grid" style="margin-top: 12px;"></div>
+      <div id="reveal" class="muted" style="margin-top: 12px;"></div>
+    </div>
+
+    <div class="card">
+      <h3>Leaderboard</h3>
+      <div id="leaderboard" class="muted">—</div>
+    </div>
+
+    <script type="module" src="./assets/player.js"></script>
+  </body>
+</html>

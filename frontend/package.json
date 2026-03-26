@@ -1,0 +1,7 @@
+{
+  "name": "quiz-frontend",
+  "private": true,
+  "scripts": {
+    "dev": "npx http-server -p 5173"
+  }
+}

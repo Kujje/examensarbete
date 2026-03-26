@@ -1,0 +1,29 @@
+:root { font-family: system-ui, Arial, sans-serif; }
+body { max-width: 900px; margin: 24px auto; padding: 0 16px; }
+.card { border: 1px solid #ddd; border-radius: 12px; padding: 16px; margin: 12px 0; }
+.row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+input, button, select { padding: 10px 12px; border-radius: 10px; border: 1px solid #ccc; }
+button { cursor: pointer; }
+button.primary { border: 0; background: #111; color: #fff; }
+.badge { display: inline-block; padding: 4px 10px; border-radius: 999px; border: 1px solid #ddd; }
+.muted { color: #666; }
+.list { margin: 0; padding-left: 18px; }
+hr { border: none; border-top: 1px solid #eee; margin: 16px 0; }
+.grid { display: grid; gap: 10px; }
+.answer-btn { width: 100%; text-align: left; }
+a.btn {
+  text-decoration: none;
+  display: inline-block;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+  color: inherit;
+}
+a.btn.primary {
+  border: 0;
+  background: #111;
+  color: #fff;
+}
+button.removeQuestion {
+  border: 1px solid #ccc;
+}

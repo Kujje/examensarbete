@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="sv">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Skapa Quiz</title>
+    <link rel="stylesheet" href="./assets/app.css" />
+  </head>
+  <body>
+    <h1>Skapa Quiz</h1>
+    <p class="muted">MVP: 3 svarsalternativ per fråga.</p>
+
+    <div class="card">
+      <div class="row">
+        <input id="title" placeholder="Quiz-titel" style="min-width: 320px" />
+        <label class="row" style="gap: 6px;">
+          <input id="isPublic" type="checkbox" checked />
+          Public
+        </label>
+      </div>
+      <p class="muted" style="margin-top: 10px;">
+        Public = syns i host-listan. Private = kräver kod (accessCode).
+      </p>
+    </div>
+
+    <div class="card">
+      <div class="row" style="justify-content: space-between;">
+        <h3 style="margin: 0;">Frågor</h3>
+        <button id="addQuestion" class="primary">+ Lägg till fråga</button>
+      </div>
+      <div id="questions"></div>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <button id="saveQuiz" class="primary">Spara Quiz</button>
+        <a class="btn" href="./index.html">Tillbaka</a>
+      </div>
+      <div id="result" class="muted" style="margin-top: 10px;"></div>
+    </div>
+
+    <script type="module" src="./assets/create.js"></script>
+  </body>
+</html>
