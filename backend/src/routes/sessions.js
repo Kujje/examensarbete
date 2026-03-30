@@ -2,7 +2,7 @@
 import express from 'express';
 import { Session } from '../models/Session.js';
 import { Quiz } from '../models/Quiz.js';
-import { generateCode, generatePlayerId } from '../utils/codes.js';
+import { generateCode, generatePin, generatePlayerId } from '../utils/codes.js';
 
 export const sessionsRouter = express.Router();
 
@@ -12,9 +12,10 @@ function normalizeCode(value) {
 
 /**
  * POST /api/sessions
- * Skapar en live-session kopplad till ett quiz.
  * Body: { quizId }
- * Return: { joinCode, hostCode, status, currentQuestionIndex }
+ * Creates a session:
+ * - joinCode: 6 digit PIN
+ * - hostCode: 8 char secret code
  */
 sessionsRouter.post('/', async (req, res, next) => {
   try {
@@ -27,8 +28,9 @@ sessionsRouter.post('/', async (req, res, next) => {
     let joinCode;
     let hostCode;
 
+    // Numeric PIN (mobile-friendly)
     for (let i = 0; i < 10; i += 1) {
-      const candidate = generateCode(6);
+      const candidate = generatePin(6);
       const exists = await Session.exists({ joinCode: candidate });
       if (!exists) {
         joinCode = candidate;
@@ -36,6 +38,7 @@ sessionsRouter.post('/', async (req, res, next) => {
       }
     }
 
+    // Host secret (keeps alphanumeric)
     for (let i = 0; i < 10; i += 1) {
       const candidate = generateCode(8);
       const exists = await Session.exists({ hostCode: candidate });
@@ -302,7 +305,10 @@ sessionsRouter.get('/:joinCode', async (req, res, next) => {
     if (!session) return res.status(404).json({ error: 'Session not found' });
 
     const qIndex = session.currentQuestionIndex;
-    const question = session.quizId.questions[qIndex];
+    const question =
+    session.status === 'question' || session.status === 'reveal'
+    ? session.quizId.questions[qIndex]
+    : null;
 
     const timeLeftMs = session.phaseEndsAt
       ? Math.max(0, new Date(session.phaseEndsAt).getTime() - Date.now())
