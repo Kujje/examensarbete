@@ -6,7 +6,7 @@
     <title>Host – Live Quiz</title>
     <link rel="stylesheet" href="./assets/app.css" />
   </head>
-  <body>
+  <body class="host-page">
     <h1>Host (Live Quiz)</h1>
 
     <div class="card">
@@ -14,9 +14,6 @@
         <select id="quizSelect" style="min-width: 360px"></select>
         <button id="refreshQuizzes">Refresh quizzes</button>
         <button id="createSession" class="primary">Create Session</button>
-      </div>
-      <div class="muted" style="margin-top: 8px;">
-        Visar public quizzes från API.
       </div>
 
       <div id="sessionInfo" class="muted" style="margin-top: 10px;"></div>
@@ -29,6 +26,7 @@
         <button id="tickBtn" disabled>Tick</button>
         <span class="badge" id="statusBadge">status: -</span>
         <span class="badge" id="timerBadge">timeLeft: -</span>
+        <span class="big-timer" id="bigTimer">-</span>
       </div>
 
       <hr />
@@ -41,7 +39,7 @@
       <ul id="players" class="list"></ul>
     </div>
 
-    <div class="card" style="border-style: dashed;">
+    <div class="card" id="leaderboardCard" style="display: none;">
   <div id="leaderboard" class="muted">Leaderboard laddas...</div>
 </div>
 

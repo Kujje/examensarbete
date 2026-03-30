@@ -9,24 +9,34 @@ const sessionInfoEl = document.getElementById('sessionInfo');
 const startBtn = document.getElementById('startBtn');
 const tickBtn = document.getElementById('tickBtn');
 
-const statusBadge = document.getElementById('statusBadge');
-const timerBadge = document.getElementById('timerBadge');
+const statusBadge = document.getElementById('statusBadge'); // can be hidden by CSS
+const timerBadge = document.getElementById('timerBadge'); // can be hidden by CSS
+const bigTimerEl = document.getElementById('bigTimer');
+
 const playersEl = document.getElementById('players');
 const questionBox = document.getElementById('questionBox');
+const leaderboardEl = document.getElementById('leaderboard');
 
 let joinCode = null;
 let hostCode = null;
 let pollTimer = null;
 
-// Hindrar spam: tick max 1 gång per phaseEndsAt
+// Auto-tick guards (prevents spamming /tick)
 let lastTickedPhaseEndsAt = null;
 let isTicking = false;
 
 function renderState(state) {
-  statusBadge.textContent = `status: ${state.status}`;
-  timerBadge.textContent =
-    state.timeLeftMs === null ? 'timeLeft: -' : `timeLeft: ${Math.ceil(state.timeLeftMs / 1000)}s`;
+  if (statusBadge) statusBadge.textContent = `status: ${state.status}`;
+  if (timerBadge) {
+    timerBadge.textContent =
+      state.timeLeftMs === null ? 'timeLeft: -' : `timeLeft: ${Math.ceil(state.timeLeftMs / 1000)}s`;
+  }
+  if (bigTimerEl) {
+    bigTimerEl.textContent =
+      state.timeLeftMs === null ? '-' : String(Math.ceil(state.timeLeftMs / 1000));
+  }
 
+  // Players list
   playersEl.innerHTML = '';
   for (const p of state.players) {
     const li = document.createElement('li');
@@ -34,6 +44,7 @@ function renderState(state) {
     playersEl.appendChild(li);
   }
 
+  // Question box
   if (state.currentQuestion && state.status !== 'finished') {
     const q = state.currentQuestion;
     const opts = q.options.map((o, i) => `<li>${i}: ${o}</li>`).join('');
@@ -46,39 +57,48 @@ function renderState(state) {
   } else if (state.status === 'finished') {
     questionBox.innerHTML = `<div><strong>Spelet är slut.</strong></div>`;
   } else {
-    questionBox.innerHTML = `<div class="muted">Ingen fråga.</div>`;
+    questionBox.innerHTML = `<div class="muted">Ingen fråga än.</div>`;
   }
 
-  const leaderboardEl = document.getElementById('leaderboard');
-  const sorted = [...state.players].sort((a, b) => b.score - a.score);
+  // Leaderboard
+  if (leaderboardEl) {
+    const sorted = [...state.players].sort((a, b) => b.score - a.score);
 
-  let leaderText = '';
-  if (sorted.length > 0) {
-    const topScore = sorted[0].score;
-    const leaders = sorted.filter((p) => p.score === topScore);
-    if (state.status === 'finished') {
-      leaderText =
-        leaders.length === 1
-          ? `Vinnare: ${leaders[0].name} (${topScore}p)`
-          : `Oavgjort: ${leaders.map((w) => w.name).join(', ')} (${topScore}p)`;
-    } else {
-      leaderText =
-        leaders.length === 1
-          ? `Ledare just nu: ${leaders[0].name} (${topScore}p)`
-          : `Delad ledning: ${leaders.map((w) => w.name).join(', ')} (${topScore}p)`;
+    let leaderText = '';
+    if (sorted.length > 0) {
+      const topScore = sorted[0].score;
+      const leaders = sorted.filter((p) => p.score === topScore);
+
+      if (state.status === 'finished') {
+        leaderText =
+          leaders.length === 1
+            ? `Vinnare: ${leaders[0].name} (${topScore}p)`
+            : `Oavgjort: ${leaders.map((w) => w.name).join(', ')} (${topScore}p)`;
+      } else if (state.status === 'reveal') {
+        leaderText =
+          leaders.length === 1
+            ? `Ledare: ${leaders[0].name} (${topScore}p)`
+            : `Delad ledning: ${leaders.map((w) => w.name).join(', ')} (${topScore}p)`;
+      }
     }
+
+    // Demo-mode: visa leaderboard bara i reveal/finished
+    const showLb = state.status === 'reveal' || state.status === 'finished';
+    const leaderboardCard = document.getElementById('leaderboardCard');
+    if (leaderboardCard) leaderboardCard.style.display = showLb ? '' : 'none';
+
+    leaderboardEl.innerHTML = `
+      <div class="row" style="justify-content: space-between;">
+        <strong>Leaderboard</strong>
+        <span class="muted">${leaderText}</span>
+      </div>
+      <ol class="list leaderboard">
+        ${sorted.map((p) => `<li>${p.name} — <strong>${p.score}</strong>p</li>`).join('')}
+      </ol>
+    `;
   }
 
-  leaderboardEl.innerHTML = `
-    <div class="row" style="justify-content: space-between;">
-      <strong>Leaderboard</strong>
-      <span class="muted">${leaderText}</span>
-    </div>
-    <ol class="list leaderboard">
-      ${sorted.map((p) => `<li>${p.name} — <strong>${p.score}</strong>p</li>`).join('')}
-    </ol>
-  `;
-
+  // Buttons
   startBtn.disabled = state.status !== 'lobby';
   tickBtn.disabled = !(state.status === 'question' || state.status === 'reveal');
 }
@@ -146,14 +166,29 @@ createSessionBtn.addEventListener('click', async () => {
     joinCode = data.joinCode;
     hostCode = data.hostCode;
 
+    // reset guards
     lastTickedPhaseEndsAt = null;
     isTicking = false;
 
+    // Demo: show only PIN + copy
     sessionInfoEl.innerHTML = `
-      <div><strong>joinCode:</strong> ${joinCode}</div>
-      <div><strong>hostCode:</strong> ${hostCode}</div>
-      <div class="muted">Dela joinCode med spelare. HostCode är hemlig.</div>
+      <div class="muted">Game PIN</div>
+      <div class="pin-wrap" style="margin-top: 8px;">
+        <span class="pin" id="pinValue">${joinCode}</span>
+        <button id="copyPinBtn" type="button">Copy</button>
+      </div>
+      <div class="muted" style="margin-top: 8px;">Dela PIN med spelare.</div>
     `;
+
+    const copyBtn = document.getElementById('copyPinBtn');
+    const pinValue = document.getElementById('pinValue');
+    if (copyBtn && pinValue) {
+      copyBtn.addEventListener('click', async () => {
+        await navigator.clipboard.writeText(pinValue.textContent || '');
+        copyBtn.textContent = 'Copied ✅';
+        setTimeout(() => (copyBtn.textContent = 'Copy'), 800);
+      });
+    }
 
     if (pollTimer) clearInterval(pollTimer);
     pollTimer = setInterval(poll, 600);
@@ -165,6 +200,7 @@ createSessionBtn.addEventListener('click', async () => {
 
 startBtn.addEventListener('click', async () => {
   try {
+    if (!joinCode || !hostCode) return;
     await apiPost(`/api/sessions/${joinCode}/start`, { hostCode });
     lastTickedPhaseEndsAt = null;
     await poll();
@@ -175,6 +211,7 @@ startBtn.addEventListener('click', async () => {
 
 tickBtn.addEventListener('click', async () => {
   try {
+    if (!joinCode || !hostCode) return;
     await apiPost(`/api/sessions/${joinCode}/tick`, { hostCode });
     await poll();
   } catch (e) {
@@ -182,4 +219,5 @@ tickBtn.addEventListener('click', async () => {
   }
 });
 
+// init
 await loadPublicQuizzes();
