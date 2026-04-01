@@ -50,7 +50,8 @@ function renderState(state) {
     const opts = q.options.map((o, i) => `<li>${i}: ${o}</li>`).join('');
     const reveal = state.reveal?.correctIndex;
     questionBox.innerHTML = `
-      <div><strong>Q${q.index + 1}:</strong> ${q.text}</div>
+      <div class="muted">Fråga ${q.index + 1}/${state.quiz.totalQuestions}</div>
+      <div><strong>${q.text}</strong></div>
       <ol class="list">${opts}</ol>
       <div class="muted">Rätt svar: ${reveal === undefined || reveal === null ? '-' : reveal}</div>
     `;

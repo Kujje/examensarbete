@@ -113,12 +113,17 @@ button.primary, a.btn.primary {
   gap: 12px;
 }
 
-.answer-grid {
-  grid-template-columns: 1fr;
-}
+.answer-grid { grid-template-columns: 1fr; }
 
 @media (min-width: 720px) {
   .answer-grid { grid-template-columns: 1fr 1fr; }
+}
+
+/* If you only have 3 options, make the last one span full width on desktop */
+@media (min-width: 720px) {
+  .answer-grid .answer-btn:nth-child(3):nth-last-child(1) {
+    grid-column: 1 / -1;
+  }
 }
 
 .answer-btn {
@@ -194,7 +199,7 @@ body.player-page .card:nth-of-type(3) {
 }
 
 /* Answer buttons already colorful; make them fill width nicely on mobile */
-body.player-page .answer-btn {
+body.player-page .answer-grid .answer-btn {
   width: 100%;
   font-size: 18px;
 }
@@ -251,4 +256,44 @@ select {
 select option {
   background: #111827; /* dark */
   color: #ffffff;
+}
+
+/* Answers row: 3 buttons in one row (desktop), stacked on mobile */
+.answers-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: nowrap;
+  align-items: stretch;
+}
+
+.answers-row > .answer-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  width: auto !important;     /* override any old width:100% */
+  margin: 0 !important;       /* reset */
+  text-align: center;
+  padding: 16px 12px;
+}
+
+.question-meta { margin-bottom: 6px; }
+
+/* Fallback spacing if some browser ignores gap */
+.answers-row > .answer-btn + .answer-btn {
+  margin-left: 16px !important;
+}
+
+/* Mobile: stack vertically so it's easy to tap */
+@media (max-width: 520px) {
+  .answers-row {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .answers-row > .answer-btn {
+    text-align: left;
+  }
+
+  .answers-row > .answer-btn + .answer-btn {
+    margin-left: 0 !important;
+  }
 }

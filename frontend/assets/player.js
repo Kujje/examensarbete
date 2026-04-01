@@ -15,6 +15,7 @@ const questionBox = document.getElementById('questionBox');
 const answersEl = document.getElementById('answers');
 const revealEl = document.getElementById('reveal');
 const leaderboardEl = document.getElementById('leaderboard');
+const questionTitleEl = document.getElementById('questionTitle');
 
 // Cards: used to hide/show whole sections cleanly
 const questionCard = questionBox?.closest('.card') || null;
@@ -166,8 +167,11 @@ function render(state) {
 
   // Question view
   const q = state.currentQuestion;
-  questionBox.textContent = `Q${q.index + 1}: ${q.text}`;
+  if (questionTitleEl) {
+  questionTitleEl.textContent = `Fråga ${q.index + 1}/${state.quiz.totalQuestions}`;
+}
 
+questionBox.textContent = q.text;
   const canAnswer =
     state.status === 'question' &&
     playerId &&
