@@ -1,17 +1,16 @@
-# Quiz App (Examensarbete) – Fullstack (Vanilla JS + Node/Express + MongoDB)
+# Quiz App (Examensarbete) – Fullstack (JS + Node/Express + MongoDB)
 
-En webbaserad quiz-applikation där man kan skapa quiz och köra ett live-quiz i realtid (MVP med polling).
+En webbaserad quiz-applikation där man kan skapa quiz och köra ett live-quiz (MVP med polling).
 Projektet visar fullstack-flöde: frontend → REST API → MongoDB Atlas.
 
 ## Teknisk stack
-- Frontend: HTML, CSS, Vanilla JavaScript
+- Frontend: HTML, CSS, JavaScript
 - Backend: Node.js, Express
 - Databas: MongoDB Atlas (Mongoose)
 - Versionhantering: Git/GitHub
 
----
-
 ## Funktioner (MVP)
+
 ### Quiz
 - Skapa quiz (public eller private)
 - Public quiz listas i host-vyn
@@ -19,17 +18,15 @@ Projektet visar fullstack-flöde: frontend → REST API → MongoDB Atlas.
 
 ### Live-quiz
 - Host skapar en live-session kopplad till ett quiz
-- Spelare joinar med `joinCode`, skriver namn och klickar Ready
+- Spelare går med med Game PIN (`joinCode`), skriver namn och klickar Ready
 - Host startar spelet när minst 2 spelare är ready
-- Frågor körs med timer:
+- Faser/timer:
   - `question` (10 sek) → `reveal` (5 sek) → nästa fråga → `finished`
-- Poäng räknas per fråga
+- Poäng räknas per fråga och sparas i MongoDB i sessionen (`sessions.players.score`)
 - Leaderboard + vinnare/oavgjort visas
-
----
+- Progress visas som `Fråga X/Y`
 
 ## Projektstruktur
-```txt
 Examensarbete/
   backend/
     src/

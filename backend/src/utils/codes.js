@@ -1,11 +1,9 @@
-const ALPHANUM = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // avoids confusing chars like 0/O/1/I
+const ALPHANUM = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const DIGITS = '0123456789';
 
 function randomFromCharset(length, charset) {
   let out = '';
-  for (let i = 0; i < length; i += 1) {
-    out += charset[Math.floor(Math.random() * charset.length)];
-  }
+  for (let i = 0; i < length; i += 1) out += charset[Math.floor(Math.random() * charset.length)];
   return out;
 }
 

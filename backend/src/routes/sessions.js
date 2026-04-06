@@ -1,4 +1,3 @@
-// backend/src/routes/sessions.js
 import express from 'express';
 import { Session } from '../models/Session.js';
 import { Quiz } from '../models/Quiz.js';
@@ -10,13 +9,7 @@ function normalizeCode(value) {
   return String(value || '').trim().toUpperCase();
 }
 
-/**
- * POST /api/sessions
- * Body: { quizId }
- * Creates a session:
- * - joinCode: 6 digit PIN
- * - hostCode: 8 char secret code
- */
+// POST /api/sessions -> skapa session (PIN + hostCode)
 sessionsRouter.post('/', async (req, res, next) => {
   try {
     const { quizId } = req.body || {};
@@ -28,7 +21,6 @@ sessionsRouter.post('/', async (req, res, next) => {
     let joinCode;
     let hostCode;
 
-    // Numeric PIN (mobile-friendly)
     for (let i = 0; i < 10; i += 1) {
       const candidate = generatePin(6);
       const exists = await Session.exists({ joinCode: candidate });
@@ -38,7 +30,6 @@ sessionsRouter.post('/', async (req, res, next) => {
       }
     }
 
-    // Host secret (keeps alphanumeric)
     for (let i = 0; i < 10; i += 1) {
       const candidate = generateCode(8);
       const exists = await Session.exists({ hostCode: candidate });
@@ -65,12 +56,7 @@ sessionsRouter.post('/', async (req, res, next) => {
   }
 });
 
-/**
- * POST /api/sessions/:joinCode/join
- * Spelare går med i lobby.
- * Body: { name }
- * Return: { playerId }
- */
+// POST /api/sessions/:joinCode/join -> spelare går med
 sessionsRouter.post('/:joinCode/join', async (req, res, next) => {
   try {
     const joinCode = normalizeCode(req.params.joinCode);
@@ -99,11 +85,7 @@ sessionsRouter.post('/:joinCode/join', async (req, res, next) => {
   }
 });
 
-/**
- * POST /api/sessions/:joinCode/ready
- * Spelare sätter ready i lobby.
- * Body: { playerId, isReady }
- */
+// POST /api/sessions/:joinCode/ready -> ready/unready
 sessionsRouter.post('/:joinCode/ready', async (req, res, next) => {
   try {
     const joinCode = normalizeCode(req.params.joinCode);
@@ -129,11 +111,7 @@ sessionsRouter.post('/:joinCode/ready', async (req, res, next) => {
   }
 });
 
-/**
- * POST /api/sessions/:joinCode/start
- * Host startar spelet när minst 2 spelare är ready.
- * Body: { hostCode }
- */
+// POST /api/sessions/:joinCode/start -> host startar spelet
 sessionsRouter.post('/:joinCode/start', async (req, res, next) => {
   try {
     const joinCode = normalizeCode(req.params.joinCode);
@@ -153,11 +131,9 @@ sessionsRouter.post('/:joinCode/start', async (req, res, next) => {
     }
 
     const readyCount = session.players.filter((p) => p.isReady).length;
-
     if (session.players.length < 2) {
       return res.status(400).json({ error: 'Need at least 2 players to start' });
     }
-
     if (readyCount !== session.players.length) {
       return res.status(400).json({ error: 'Not all players are ready' });
     }
@@ -173,11 +149,7 @@ sessionsRouter.post('/:joinCode/start', async (req, res, next) => {
   }
 });
 
-/**
- * POST /api/sessions/:joinCode/answer
- * Spelare svarar under status=question.
- * Body: { playerId, optionIndex }
- */
+// POST /api/sessions/:joinCode/answer -> spelare svarar under question
 sessionsRouter.post('/:joinCode/answer', async (req, res, next) => {
   try {
     const joinCode = normalizeCode(req.params.joinCode);
@@ -206,7 +178,6 @@ sessionsRouter.post('/:joinCode/answer', async (req, res, next) => {
       return res.status(400).json({ error: 'optionIndex out of range' });
     }
 
-    // answers är Mixed i schema -> markModified behövs för nested updates
     session.answers ||= {};
     const key = String(qIndex);
     session.answers[key] ||= {};
@@ -220,12 +191,7 @@ sessionsRouter.post('/:joinCode/answer', async (req, res, next) => {
   }
 });
 
-/**
- * POST /api/sessions/:joinCode/tick
- * Host flyttar fas när tiden är slut:
- * question -> reveal (räkna poäng) -> next question OR finished
- * Body: { hostCode }
- */
+// POST /api/sessions/:joinCode/tick -> flytta fas när tid är slut
 sessionsRouter.post('/:joinCode/tick', async (req, res, next) => {
   try {
     const joinCode = normalizeCode(req.params.joinCode);
@@ -244,8 +210,7 @@ sessionsRouter.post('/:joinCode/tick', async (req, res, next) => {
       return res.status(400).json({ error: 'No active phase' });
     }
 
-    const endsAt = new Date(session.phaseEndsAt).getTime();
-    if (Date.now() < endsAt) {
+    if (Date.now() < new Date(session.phaseEndsAt).getTime()) {
       return res.status(400).json({ error: 'Phase not finished yet' });
     }
 
@@ -293,10 +258,7 @@ sessionsRouter.post('/:joinCode/tick', async (req, res, next) => {
   }
 });
 
-/**
- * GET /api/sessions/:joinCode
- * Returnerar session state för polling-klienter (host/player).
- */
+// GET /api/sessions/:joinCode -> state för polling
 sessionsRouter.get('/:joinCode', async (req, res, next) => {
   try {
     const joinCode = normalizeCode(req.params.joinCode);
@@ -306,9 +268,9 @@ sessionsRouter.get('/:joinCode', async (req, res, next) => {
 
     const qIndex = session.currentQuestionIndex;
     const question =
-    session.status === 'question' || session.status === 'reveal'
-    ? session.quizId.questions[qIndex]
-    : null;
+      session.status === 'question' || session.status === 'reveal'
+        ? session.quizId.questions[qIndex]
+        : null;
 
     const timeLeftMs = session.phaseEndsAt
       ? Math.max(0, new Date(session.phaseEndsAt).getTime() - Date.now())
@@ -334,9 +296,7 @@ sessionsRouter.get('/:joinCode', async (req, res, next) => {
       currentQuestion: question
         ? { index: qIndex, text: question.text, options: question.options }
         : null,
-      reveal: session.status === 'reveal'
-        ? { correctIndex: question?.correctIndex ?? null }
-        : null,
+      reveal: session.status === 'reveal' ? { correctIndex: question?.correctIndex ?? null } : null,
     });
   } catch (err) {
     next(err);

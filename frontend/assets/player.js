@@ -1,4 +1,3 @@
-// frontend/assets/player.js
 import { apiGet, apiPost } from './api.js';
 
 const joinCodeEl = document.getElementById('joinCode');
@@ -6,18 +5,18 @@ const nameEl = document.getElementById('name');
 const joinBtn = document.getElementById('joinBtn');
 const readyBtn = document.getElementById('readyBtn');
 
-const statusBadge = document.getElementById('statusBadge'); // kept (can be hidden by CSS)
-const timerBadge = document.getElementById('timerBadge'); // kept (can be hidden by CSS)
+const statusBadge = document.getElementById('statusBadge');
+const timerBadge = document.getElementById('timerBadge');
 const bigTimerEl = document.getElementById('bigTimer');
 const infoEl = document.getElementById('info');
 
+const questionTitleEl = document.getElementById('questionTitle');
 const questionBox = document.getElementById('questionBox');
 const answersEl = document.getElementById('answers');
 const revealEl = document.getElementById('reveal');
-const leaderboardEl = document.getElementById('leaderboard');
-const questionTitleEl = document.getElementById('questionTitle');
 
-// Cards: used to hide/show whole sections cleanly
+const leaderboardEl = document.getElementById('leaderboard');
+
 const questionCard = questionBox?.closest('.card') || null;
 const leaderboardCard = leaderboardEl?.closest('.card') || null;
 
@@ -47,16 +46,14 @@ function setNotJoinedUi() {
   infoEl.textContent = 'Skriv Game PIN + namn och tryck Join.';
   readyBtn.disabled = true;
 
+  if (questionTitleEl) questionTitleEl.textContent = 'Fråga';
   questionBox.textContent = 'Ingen fråga än.';
   answersEl.innerHTML = '';
   revealEl.textContent = '';
 
-  // Before joining: keep it clean
   hide(questionCard);
   hide(leaderboardCard);
 }
-
-setNotJoinedUi();
 
 async function poll() {
   if (!joinCode) return;
@@ -119,7 +116,6 @@ function render(state) {
 
   const me = state.players.find((p) => p.playerId === playerId);
 
-  // Lobby: minimal UI
   if (state.status === 'lobby') {
     readyBtn.disabled = !playerId;
     readyBtn.textContent = me?.isReady ? 'Ready ✅' : 'Ready';
@@ -129,49 +125,48 @@ function render(state) {
       ? `Du är med som ${myName}. Väntar på att hosten startar…`
       : 'Tryck Join för att gå med.';
 
+    if (questionTitleEl) questionTitleEl.textContent = 'Fråga';
     hide(questionCard);
     hide(leaderboardCard);
     revealEl.textContent = '';
     return;
   }
 
-  // During game: show question card
   show(questionCard);
 
-  // Show leaderboard only when useful (reveal/finished)
-  if (state.status === 'reveal' || state.status === 'finished') {
-    show(leaderboardCard);
-  } else {
-    hide(leaderboardCard);
-  }
+  if (state.status === 'reveal' || state.status === 'finished') show(leaderboardCard);
+  else hide(leaderboardCard);
 
-  // Info: show score only (no playerId)
   infoEl.textContent = me ? `Poäng: ${me.score}` : 'Poäng: -';
 
-  // Finished
   if (state.status === 'finished') {
     answersEl.innerHTML = '';
     questionBox.textContent = 'Spelet är slut.';
-    revealEl.textContent = `Din poäng: ${me ? me.score : '?'}`;
+
+    const total = state.quiz?.totalQuestions ?? '?';
+    const score = me ? me.score : '?';
+    revealEl.textContent = `Din poäng: ${score}/${total}`;
+
     renderLeaderboard(state);
     return;
   }
 
-  // No question (shouldn't happen often, but safe)
   if (!state.currentQuestion) {
+    if (questionTitleEl) questionTitleEl.textContent = 'Fråga';
     questionBox.textContent = 'Väntar på fråga...';
     answersEl.innerHTML = '';
     revealEl.textContent = '';
     return;
   }
 
-  // Question view
   const q = state.currentQuestion;
-  if (questionTitleEl) {
-  questionTitleEl.textContent = `Fråga ${q.index + 1}/${state.quiz.totalQuestions}`;
-}
 
-questionBox.textContent = q.text;
+  if (questionTitleEl) {
+    questionTitleEl.textContent = `Fråga ${q.index + 1}/${state.quiz.totalQuestions}`;
+  }
+
+  questionBox.textContent = q.text;
+
   const canAnswer =
     state.status === 'question' &&
     playerId &&
@@ -188,7 +183,7 @@ questionBox.textContent = q.text;
       try {
         await apiPost(`/api/sessions/${joinCode}/answer`, { playerId, optionIndex: idx });
         lastPickedIndex = idx;
-        revealEl.textContent = `Svar skickat ✅`;
+        revealEl.textContent = 'Svar skickat ✅';
       } catch (e) {
         revealEl.textContent = `Svar misslyckades: ${e.message}`;
       }
@@ -197,7 +192,6 @@ questionBox.textContent = q.text;
     answersEl.appendChild(btn);
   });
 
-  // Reveal
   if (
     state.status === 'reveal' &&
     state.reveal?.correctIndex !== null &&
@@ -240,3 +234,5 @@ readyBtn.addEventListener('click', async () => {
     alert(e.message);
   }
 });
+
+setNotJoinedUi();

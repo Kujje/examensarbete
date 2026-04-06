@@ -1,4 +1,3 @@
-// frontend/assets/host.js
 import { apiGet, apiPost } from './api.js';
 
 const quizSelect = document.getElementById('quizSelect');
@@ -9,8 +8,8 @@ const sessionInfoEl = document.getElementById('sessionInfo');
 const startBtn = document.getElementById('startBtn');
 const tickBtn = document.getElementById('tickBtn');
 
-const statusBadge = document.getElementById('statusBadge'); // can be hidden by CSS
-const timerBadge = document.getElementById('timerBadge'); // can be hidden by CSS
+const statusBadge = document.getElementById('statusBadge');
+const timerBadge = document.getElementById('timerBadge');
 const bigTimerEl = document.getElementById('bigTimer');
 
 const playersEl = document.getElementById('players');
@@ -21,7 +20,6 @@ let joinCode = null;
 let hostCode = null;
 let pollTimer = null;
 
-// Auto-tick guards (prevents spamming /tick)
 let lastTickedPhaseEndsAt = null;
 let isTicking = false;
 
@@ -36,7 +34,6 @@ function renderState(state) {
       state.timeLeftMs === null ? '-' : String(Math.ceil(state.timeLeftMs / 1000));
   }
 
-  // Players list
   playersEl.innerHTML = '';
   for (const p of state.players) {
     const li = document.createElement('li');
@@ -44,7 +41,6 @@ function renderState(state) {
     playersEl.appendChild(li);
   }
 
-  // Question box
   if (state.currentQuestion && state.status !== 'finished') {
     const q = state.currentQuestion;
     const opts = q.options.map((o, i) => `<li>${i}: ${o}</li>`).join('');
@@ -61,7 +57,6 @@ function renderState(state) {
     questionBox.innerHTML = `<div class="muted">Ingen fråga än.</div>`;
   }
 
-  // Leaderboard
   if (leaderboardEl) {
     const sorted = [...state.players].sort((a, b) => b.score - a.score);
 
@@ -83,7 +78,6 @@ function renderState(state) {
       }
     }
 
-    // Demo-mode: visa leaderboard bara i reveal/finished
     const showLb = state.status === 'reveal' || state.status === 'finished';
     const leaderboardCard = document.getElementById('leaderboardCard');
     if (leaderboardCard) leaderboardCard.style.display = showLb ? '' : 'none';
@@ -99,7 +93,6 @@ function renderState(state) {
     `;
   }
 
-  // Buttons
   startBtn.disabled = state.status !== 'lobby';
   tickBtn.disabled = !(state.status === 'question' || state.status === 'reveal');
 }
@@ -167,11 +160,9 @@ createSessionBtn.addEventListener('click', async () => {
     joinCode = data.joinCode;
     hostCode = data.hostCode;
 
-    // reset guards
     lastTickedPhaseEndsAt = null;
     isTicking = false;
 
-    // Demo: show only PIN + copy
     sessionInfoEl.innerHTML = `
       <div class="muted">Game PIN</div>
       <div class="pin-wrap" style="margin-top: 8px;">
@@ -220,5 +211,4 @@ tickBtn.addEventListener('click', async () => {
   }
 });
 
-// init
 await loadPublicQuizzes();

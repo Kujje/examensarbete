@@ -1,14 +1,10 @@
-// backend/src/routes/quizzes.js
 import express from 'express';
 import { Quiz } from '../models/Quiz.js';
 import { generateAccessCode } from '../utils/accessCode.js';
 
 export const quizzesRouter = express.Router();
 
-/**
- * GET /api/quizzes/public
- * Listar publika quiz (bara metadata) för host-dropdown.
- */
+// GET /api/quizzes/public -> metadata för host-dropdown
 quizzesRouter.get('/public', async (_req, res, next) => {
   try {
     const quizzes = await Quiz.find({ isPublic: true })
@@ -21,10 +17,7 @@ quizzesRouter.get('/public', async (_req, res, next) => {
   }
 });
 
-/**
- * GET /api/quizzes/code/:code
- * Hämtar privat quiz via accessCode.
- */
+// GET /api/quizzes/code/:code -> privat quiz via accessCode
 quizzesRouter.get('/code/:code', async (req, res, next) => {
   try {
     const code = String(req.params.code || '').trim().toUpperCase();
@@ -38,11 +31,7 @@ quizzesRouter.get('/code/:code', async (req, res, next) => {
   }
 });
 
-/**
- * GET /api/quizzes/:id
- * Hämtar quiz via id (främst publika för spel/host).
- * Not: privata kan tekniskt hämtas via id om man har id.
- */
+// GET /api/quizzes/:id -> hämta quiz via id
 quizzesRouter.get('/:id', async (req, res, next) => {
   try {
     const quiz = await Quiz.findById(req.params.id);
@@ -54,11 +43,7 @@ quizzesRouter.get('/:id', async (req, res, next) => {
   }
 });
 
-/**
- * POST /api/quizzes
- * Skapar nytt quiz.
- * Body: { title, isPublic, questions: [{ text, options, correctIndex }] }
- */
+// POST /api/quizzes -> skapa quiz
 quizzesRouter.post('/', async (req, res, next) => {
   try {
     const { title, isPublic, questions } = req.body || {};

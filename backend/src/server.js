@@ -10,20 +10,25 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-
 app.get('/health', (_req, res) => {
-  res.json({ ok: true, message: 'Server is running' });
+  res.json({ ok: true });
 });
 
 app.use('/api/quizzes', quizzesRouter);
 app.use('/api/sessions', sessionsRouter);
+
+// Enkel JSON error handler (sist)
+app.use((err, _req, res, _next) => {
+  console.error(err);
+  res.status(500).json({ error: 'Internal server error' });
+});
 
 const PORT = process.env.PORT || 3000;
 
 async function start() {
   const mongoUri = process.env.MONGODB_URI;
   if (!mongoUri) {
-    console.log('Missing MONGODB_URI in .env');
+    console.error('Missing MONGODB_URI in .env');
     process.exit(1);
   }
 
@@ -36,6 +41,6 @@ async function start() {
 }
 
 start().catch((err) => {
-  console.log('Failed to start:', err.message);
+  console.error('Failed to start:', err.message);
   process.exit(1);
 });

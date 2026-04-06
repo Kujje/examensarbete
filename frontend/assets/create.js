@@ -1,4 +1,3 @@
-// frontend/assets/create.js
 import { apiPost } from './api.js';
 
 const titleEl = document.getElementById('title');
@@ -67,7 +66,6 @@ function renumberQuestions() {
     card.dataset.qIndex = String(idx);
     card.querySelector('strong').textContent = `Fråga ${idx + 1}`;
 
-    // Varje fråga måste ha en egen radio-grupp
     card.querySelectorAll('input.correct').forEach((r) => {
       r.name = `correct_${idx}`;
     });
@@ -122,5 +120,4 @@ saveQuizBtn.addEventListener('click', async () => {
   }
 });
 
-// Start: minst 1 fråga
 questionsEl.appendChild(createQuestionCard(0));

@@ -26,6 +26,7 @@ const SessionSchema = new mongoose.Schema(
     phaseEndsAt: { type: Date, default: null },
 
     players: { type: [PlayerSchema], default: [] },
+
     answers: { type: mongoose.Schema.Types.Mixed, default: {} },
   },
   { timestamps: true }
