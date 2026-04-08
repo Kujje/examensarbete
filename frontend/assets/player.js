@@ -1,3 +1,4 @@
+// frontend/assets/player.js
 import { apiGet, apiPost, API_BASE } from './api.js';
 
 const joinCodeEl = document.getElementById('joinCode');
@@ -23,26 +24,14 @@ let joinCode = null;
 let playerId = null;
 let pollTimer = null;
 let lastPickedIndex = null;
+
+// Local countdown (stable)
 let uiTimer = null;
 let uiPhaseEndsAt = null;
+let uiLastPhaseKey = null;
 
-// Socket client (needs CDN script in HTML)
+// Socket client (requires socket.io client script in player.html)
 const socket = window.io ? window.io(API_BASE) : null;
-
-function startLocalCountdown(phaseEndsAt) {
-  uiPhaseEndsAt = phaseEndsAt ? new Date(phaseEndsAt).getTime() : null;
-
-  if (uiTimer) clearInterval(uiTimer);
-
-  uiTimer = setInterval(() => {
-    if (!bigTimerEl || !uiPhaseEndsAt) {
-      if (bigTimerEl) bigTimerEl.textContent = '-';
-      return;
-    }
-    const msLeft = Math.max(0, uiPhaseEndsAt - Date.now());
-    bigTimerEl.textContent = String(Math.ceil(msLeft / 1000));
-  }, 250);
-}
 
 function secondsLeft(ms) {
   if (ms === null || ms === undefined) return '-';
@@ -55,6 +44,34 @@ function show(el) {
 
 function hide(el) {
   if (el) el.style.display = 'none';
+}
+
+function ensureLocalCountdown(state) {
+  const phaseKey = state?.phaseEndsAt ? String(state.phaseEndsAt) : null;
+
+  if (!phaseKey || typeof state.timeLeftMs !== 'number') {
+    uiLastPhaseKey = null;
+    uiPhaseEndsAt = null;
+    if (uiTimer) {
+      clearInterval(uiTimer);
+      uiTimer = null;
+    }
+    if (bigTimerEl) bigTimerEl.textContent = '-';
+    return;
+  }
+
+  if (phaseKey !== uiLastPhaseKey) {
+    uiLastPhaseKey = phaseKey;
+    uiPhaseEndsAt = Date.now() + Math.max(0, state.timeLeftMs);
+  }
+
+  if (!uiTimer) {
+    uiTimer = setInterval(() => {
+      if (!bigTimerEl || !uiPhaseEndsAt) return;
+      const msLeft = Math.max(0, uiPhaseEndsAt - Date.now());
+      bigTimerEl.textContent = String(Math.ceil(msLeft / 1000));
+    }, 200);
+  }
 }
 
 function setNotJoinedUi() {
@@ -72,6 +89,8 @@ function setNotJoinedUi() {
 
   hide(questionCard);
   hide(leaderboardCard);
+
+  ensureLocalCountdown({ phaseEndsAt: null, timeLeftMs: null });
 }
 
 async function poll() {
@@ -86,7 +105,6 @@ async function poll() {
 
 function startPollingFallback() {
   if (pollTimer) clearInterval(pollTimer);
-  // Poll mindre ofta nu när socket pushar state
   pollTimer = setInterval(poll, 2000);
   poll().catch(() => {});
 }
@@ -99,7 +117,7 @@ function stopPollingFallback() {
 function renderLeaderboard(state) {
   if (!leaderboardEl) return;
 
-  const sorted = [...state.players].sort((a, b) => b.score - a.score);
+  const sorted = [...(state.players || [])].sort((a, b) => b.score - a.score);
   const topScore = sorted.length ? sorted[0].score : 0;
   const winners = sorted.filter((p) => p.score === topScore);
 
@@ -134,14 +152,12 @@ function renderLeaderboard(state) {
 function render(state) {
   if (statusBadge) statusBadge.textContent = `status: ${state.status}`;
   if (timerBadge) timerBadge.textContent = `timeLeft: ${secondsLeft(state.timeLeftMs)}`;
-  if (bigTimerEl) {
-    bigTimerEl.textContent =
-      state.timeLeftMs === null ? '-' : String(Math.ceil(state.timeLeftMs / 1000));
-  }
 
-  const me = state.players.find((p) => p.playerId === playerId);
+  ensureLocalCountdown(state);
 
-  // Lobby view
+  const me = (state.players || []).find((p) => p.playerId === playerId);
+
+  // Lobby
   if (state.status === 'lobby') {
     readyBtn.disabled = !playerId;
     readyBtn.textContent = me?.isReady ? 'Ready ✅' : 'Ready';
@@ -158,7 +174,7 @@ function render(state) {
     return;
   }
 
-  // Game view
+  // Game
   show(questionCard);
 
   if (state.status === 'reveal' || state.status === 'finished') show(leaderboardCard);
@@ -179,7 +195,6 @@ function render(state) {
     return;
   }
 
-  // Safe guard
   if (!state.currentQuestion) {
     if (questionTitleEl) questionTitleEl.textContent = 'Fråga';
     questionBox.textContent = 'Väntar på fråga...';
@@ -191,7 +206,7 @@ function render(state) {
   const q = state.currentQuestion;
 
   if (questionTitleEl) {
-    questionTitleEl.textContent = `Fråga ${q.index + 1}/${state.quiz.totalQuestions}`;
+    questionTitleEl.textContent = `Fråga ${q.index + 1}/${state.quiz?.totalQuestions ?? '?'}`;
   }
 
   questionBox.textContent = q.text;
@@ -202,7 +217,7 @@ function render(state) {
     (state.timeLeftMs === null || state.timeLeftMs > 0);
 
   answersEl.innerHTML = '';
-  q.options.forEach((opt, idx) => {
+  (q.options || []).forEach((opt, idx) => {
     const btn = document.createElement('button');
     btn.className = 'answer-btn';
     btn.textContent = opt;
@@ -235,7 +250,6 @@ function render(state) {
   } else {
     revealEl.textContent = '';
   }
-  startLocalCountdown(state.phaseEndsAt);
 }
 
 function bindSocketStateListener() {
@@ -243,12 +257,10 @@ function bindSocketStateListener() {
 
   socket.off('state');
   socket.on('state', (state) => {
-    // ignore other sessions
     if (!state || !state.joinCode || state.joinCode !== joinCode) return;
     render(state);
   });
 
-  // optional: if socket reconnects, re-join room
   socket.off('connect');
   socket.on('connect', () => {
     if (joinCode) socket.emit('join', joinCode);
@@ -267,16 +279,12 @@ joinBtn.addEventListener('click', async () => {
     playerId = data.playerId;
     lastPickedIndex = null;
 
-    // Join socket room and listen for state
     if (socket) {
       socket.emit('join', joinCode);
       bindSocketStateListener();
     }
 
-    // Keep polling as fallback (less frequent)
     startPollingFallback();
-
-    // One immediate fetch so UI updates right away
     await poll();
   } catch (e) {
     alert(e.message);
@@ -287,19 +295,15 @@ readyBtn.addEventListener('click', async () => {
   try {
     if (!joinCode || !playerId) return;
     await apiPost(`/api/sessions/${joinCode}/ready`, { playerId, isReady: true });
-
-    // state will be pushed via socket, but polling fallback exists
     await poll();
   } catch (e) {
     alert(e.message);
   }
 });
 
-// If socket exists, keep listener ready (will start rendering after joinCode is set)
 if (socket) {
   bindSocketStateListener();
 }
 
-// Initial UI
 stopPollingFallback();
 setNotJoinedUi();

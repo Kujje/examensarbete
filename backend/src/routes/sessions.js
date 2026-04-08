@@ -29,6 +29,7 @@ async function emitState(joinCode) {
     : null;
 
   const state = {
+    serverNowMs: Date.now(),
     joinCode: session.joinCode,
     status: session.status,
     currentQuestionIndex: session.currentQuestionIndex,
@@ -364,6 +365,7 @@ sessionsRouter.get('/:joinCode', async (req, res, next) => {
       : null;
 
     res.json({
+      serverNowMs: Date.now(),
       joinCode: session.joinCode,
       status: session.status,
       currentQuestionIndex: session.currentQuestionIndex,

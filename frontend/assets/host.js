@@ -1,3 +1,4 @@
+// frontend/assets/host.js
 import { apiGet, apiPost, API_BASE } from './api.js';
 
 const quizSelect = document.getElementById('quizSelect');
@@ -22,43 +23,55 @@ let pollTimer = null;
 
 let lastTickedPhaseEndsAt = null;
 let isTicking = false;
+
+// Local countdown (stable)
 let uiTimer = null;
 let uiPhaseEndsAt = null;
+let uiLastPhaseKey = null;
 
-function startLocalCountdown(phaseEndsAt) {
-  uiPhaseEndsAt = phaseEndsAt ? new Date(phaseEndsAt).getTime() : null;
-
-  if (uiTimer) clearInterval(uiTimer);
-
-  uiTimer = setInterval(() => {
-    if (!bigTimerEl || !uiPhaseEndsAt) {
-      if (bigTimerEl) bigTimerEl.textContent = '-';
-      return;
-    }
-    const msLeft = Math.max(0, uiPhaseEndsAt - Date.now());
-    bigTimerEl.textContent = String(Math.ceil(msLeft / 1000));
-  }, 250);
-}
-
-// Socket client (needs CDN script in host.html)
+// Socket client (requires socket.io client script in host.html)
 const socket = window.io ? window.io(API_BASE) : null;
+
+function ensureLocalCountdown(state) {
+  const phaseKey = state?.phaseEndsAt ? String(state.phaseEndsAt) : null;
+
+  if (!phaseKey || typeof state.timeLeftMs !== 'number') {
+    uiLastPhaseKey = null;
+    uiPhaseEndsAt = null;
+    if (uiTimer) {
+      clearInterval(uiTimer);
+      uiTimer = null;
+    }
+    if (bigTimerEl) bigTimerEl.textContent = '-';
+    return;
+  }
+
+  if (phaseKey !== uiLastPhaseKey) {
+    uiLastPhaseKey = phaseKey;
+    uiPhaseEndsAt = Date.now() + Math.max(0, state.timeLeftMs);
+  }
+
+  if (!uiTimer) {
+    uiTimer = setInterval(() => {
+      if (!bigTimerEl || !uiPhaseEndsAt) return;
+      const msLeft = Math.max(0, uiPhaseEndsAt - Date.now());
+      bigTimerEl.textContent = String(Math.ceil(msLeft / 1000));
+    }, 200);
+  }
+}
 
 function renderState(state) {
   if (statusBadge) statusBadge.textContent = `status: ${state.status}`;
-
   if (timerBadge) {
     timerBadge.textContent =
       state.timeLeftMs === null ? 'timeLeft: -' : `timeLeft: ${Math.ceil(state.timeLeftMs / 1000)}s`;
   }
 
-  if (bigTimerEl) {
-    bigTimerEl.textContent =
-      state.timeLeftMs === null ? '-' : String(Math.ceil(state.timeLeftMs / 1000));
-  }
+  ensureLocalCountdown(state);
 
-  // Players list
+  // Players
   playersEl.innerHTML = '';
-  for (const p of state.players) {
+  for (const p of state.players || []) {
     const li = document.createElement('li');
     li.textContent = `${p.name} | ready: ${p.isReady ? '✅' : '❌'} | score: ${p.score}`;
     playersEl.appendChild(li);
@@ -67,11 +80,10 @@ function renderState(state) {
   // Question
   if (state.currentQuestion && state.status !== 'finished') {
     const q = state.currentQuestion;
-    const opts = q.options.map((o, i) => `<li>${i}: ${o}</li>`).join('');
+    const opts = (q.options || []).map((o, i) => `<li>${i}: ${o}</li>`).join('');
     const reveal = state.reveal?.correctIndex;
-
     questionBox.innerHTML = `
-      <div class="muted">Fråga ${q.index + 1}/${state.quiz.totalQuestions}</div>
+      <div class="muted">Fråga ${q.index + 1}/${state.quiz?.totalQuestions ?? '?'}</div>
       <div><strong>${q.text}</strong></div>
       <ol class="list">${opts}</ol>
       <div class="muted">Rätt svar: ${reveal === undefined || reveal === null ? '-' : reveal}</div>
@@ -84,7 +96,7 @@ function renderState(state) {
 
   // Leaderboard
   if (leaderboardEl) {
-    const sorted = [...state.players].sort((a, b) => b.score - a.score);
+    const sorted = [...(state.players || [])].sort((a, b) => b.score - a.score);
 
     let leaderText = '';
     if (sorted.length > 0) {
@@ -119,13 +131,9 @@ function renderState(state) {
     `;
   }
 
-  // Buttons
   startBtn.disabled = state.status !== 'lobby';
   tickBtn.disabled = !(state.status === 'question' || state.status === 'reveal');
 
-  startLocalCountdown(state.phaseEndsAt);
-
-  // Auto tick
   tryAutoTick(state).catch(() => {});
 }
 
@@ -151,7 +159,7 @@ async function tryAutoTick(state) {
   }
 }
 
-// Polling fallback (kan tas bort senare)
+// Polling fallback
 async function poll() {
   if (!joinCode) return;
   try {
@@ -165,7 +173,6 @@ async function poll() {
 function bindSocketListeners() {
   if (!socket) return;
 
-  // State push
   socket.off('state');
   socket.on('state', (state) => {
     if (!state?.joinCode) return;
@@ -173,7 +180,6 @@ function bindSocketListeners() {
     renderState(state);
   });
 
-  // Re-join room after reconnect
   socket.off('connect');
   socket.on('connect', () => {
     if (joinCode) socket.emit('join', joinCode);
@@ -232,13 +238,11 @@ createSessionBtn.addEventListener('click', async () => {
       });
     }
 
-    // Socket: join + listeners
     if (socket) {
       socket.emit('join', joinCode);
       bindSocketListeners();
     }
 
-    // Poll fallback
     if (pollTimer) clearInterval(pollTimer);
     pollTimer = setInterval(poll, 1500);
     await poll();
