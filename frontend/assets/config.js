@@ -1,0 +1,1 @@
+window.API_BASE = 'https://quiz-backend-x6vl.onrender.com';

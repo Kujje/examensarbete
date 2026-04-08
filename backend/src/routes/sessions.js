@@ -1,7 +1,9 @@
+// backend/src/routes/sessions.js
 import express from 'express';
 import { Session } from '../models/Session.js';
 import { Quiz } from '../models/Quiz.js';
 import { generateCode, generatePin, generatePlayerId } from '../utils/codes.js';
+import { getIo } from '../socketStore.js';
 
 export const sessionsRouter = express.Router();
 
@@ -9,7 +11,56 @@ function normalizeCode(value) {
   return String(value || '').trim().toUpperCase();
 }
 
-// POST /api/sessions -> skapa session (PIN + hostCode)
+async function emitState(joinCode) {
+  const io = getIo();
+  if (!io) return;
+
+  const session = await Session.findOne({ joinCode }).populate('quizId');
+  if (!session) return;
+
+  const qIndex = session.currentQuestionIndex;
+  const question =
+    session.status === 'question' || session.status === 'reveal'
+      ? session.quizId.questions[qIndex]
+      : null;
+
+  const timeLeftMs = session.phaseEndsAt
+    ? Math.max(0, new Date(session.phaseEndsAt).getTime() - Date.now())
+    : null;
+
+  const state = {
+    joinCode: session.joinCode,
+    status: session.status,
+    currentQuestionIndex: session.currentQuestionIndex,
+    phaseEndsAt: session.phaseEndsAt,
+    timeLeftMs,
+    players: session.players.map((p) => ({
+      playerId: p.playerId,
+      name: p.name,
+      isReady: p.isReady,
+      score: p.score,
+    })),
+    quiz: {
+      _id: session.quizId._id,
+      title: session.quizId.title,
+      totalQuestions: session.quizId.questions.length,
+    },
+    currentQuestion: question
+      ? { index: qIndex, text: question.text, options: question.options }
+      : null,
+    reveal: session.status === 'reveal'
+      ? { correctIndex: question?.correctIndex ?? null }
+      : null,
+  };
+
+  io.to(joinCode).emit('state', state);
+}
+
+/**
+ * POST /api/sessions
+ * Body: { quizId }
+ * Return: { joinCode, hostCode, status, currentQuestionIndex }
+ */
 sessionsRouter.post('/', async (req, res, next) => {
   try {
     const { quizId } = req.body || {};
@@ -45,6 +96,8 @@ sessionsRouter.post('/', async (req, res, next) => {
 
     const session = await Session.create({ quizId, joinCode, hostCode });
 
+    await emitState(session.joinCode);
+
     res.status(201).json({
       joinCode: session.joinCode,
       hostCode: session.hostCode,
@@ -56,7 +109,11 @@ sessionsRouter.post('/', async (req, res, next) => {
   }
 });
 
-// POST /api/sessions/:joinCode/join -> spelare går med
+/**
+ * POST /api/sessions/:joinCode/join
+ * Body: { name }
+ * Return: { playerId }
+ */
 sessionsRouter.post('/:joinCode/join', async (req, res, next) => {
   try {
     const joinCode = normalizeCode(req.params.joinCode);
@@ -79,13 +136,18 @@ sessionsRouter.post('/:joinCode/join', async (req, res, next) => {
     session.players.push({ playerId, name: cleanName, isReady: false, score: 0 });
     await session.save();
 
+    await emitState(joinCode);
+
     res.status(201).json({ playerId });
   } catch (err) {
     next(err);
   }
 });
 
-// POST /api/sessions/:joinCode/ready -> ready/unready
+/**
+ * POST /api/sessions/:joinCode/ready
+ * Body: { playerId, isReady }
+ */
 sessionsRouter.post('/:joinCode/ready', async (req, res, next) => {
   try {
     const joinCode = normalizeCode(req.params.joinCode);
@@ -105,13 +167,18 @@ sessionsRouter.post('/:joinCode/ready', async (req, res, next) => {
     player.isReady = isReady;
     await session.save();
 
+    await emitState(joinCode);
+
     res.json({ ok: true });
   } catch (err) {
     next(err);
   }
 });
 
-// POST /api/sessions/:joinCode/start -> host startar spelet
+/**
+ * POST /api/sessions/:joinCode/start
+ * Body: { hostCode }
+ */
 sessionsRouter.post('/:joinCode/start', async (req, res, next) => {
   try {
     const joinCode = normalizeCode(req.params.joinCode);
@@ -143,13 +210,18 @@ sessionsRouter.post('/:joinCode/start', async (req, res, next) => {
     session.phaseEndsAt = new Date(Date.now() + 10_000);
     await session.save();
 
+    await emitState(joinCode);
+
     res.json({ ok: true, status: session.status, phaseEndsAt: session.phaseEndsAt });
   } catch (err) {
     next(err);
   }
 });
 
-// POST /api/sessions/:joinCode/answer -> spelare svarar under question
+/**
+ * POST /api/sessions/:joinCode/answer
+ * Body: { playerId, optionIndex }
+ */
 sessionsRouter.post('/:joinCode/answer', async (req, res, next) => {
   try {
     const joinCode = normalizeCode(req.params.joinCode);
@@ -185,13 +257,19 @@ sessionsRouter.post('/:joinCode/answer', async (req, res, next) => {
     session.markModified('answers');
 
     await session.save();
+
+    await emitState(joinCode);
+
     res.json({ ok: true });
   } catch (err) {
     next(err);
   }
 });
 
-// POST /api/sessions/:joinCode/tick -> flytta fas när tid är slut
+/**
+ * POST /api/sessions/:joinCode/tick
+ * Body: { hostCode }
+ */
 sessionsRouter.post('/:joinCode/tick', async (req, res, next) => {
   try {
     const joinCode = normalizeCode(req.params.joinCode);
@@ -231,6 +309,8 @@ sessionsRouter.post('/:joinCode/tick', async (req, res, next) => {
       session.phaseEndsAt = new Date(Date.now() + 5_000);
       await session.save();
 
+      await emitState(joinCode);
+
       return res.json({ ok: true, status: session.status, phaseEndsAt: session.phaseEndsAt });
     }
 
@@ -241,6 +321,9 @@ sessionsRouter.post('/:joinCode/tick', async (req, res, next) => {
         session.status = 'finished';
         session.phaseEndsAt = null;
         await session.save();
+
+        await emitState(joinCode);
+
         return res.json({ ok: true, status: session.status });
       }
 
@@ -248,6 +331,8 @@ sessionsRouter.post('/:joinCode/tick', async (req, res, next) => {
       session.status = 'question';
       session.phaseEndsAt = new Date(Date.now() + 10_000);
       await session.save();
+
+      await emitState(joinCode);
 
       return res.json({ ok: true, status: session.status, phaseEndsAt: session.phaseEndsAt });
     }
@@ -258,12 +343,14 @@ sessionsRouter.post('/:joinCode/tick', async (req, res, next) => {
   }
 });
 
-// GET /api/sessions/:joinCode -> state för polling
+/**
+ * GET /api/sessions/:joinCode
+ * (Behålls som fallback / debug)
+ */
 sessionsRouter.get('/:joinCode', async (req, res, next) => {
   try {
     const joinCode = normalizeCode(req.params.joinCode);
     const session = await Session.findOne({ joinCode }).populate('quizId');
-
     if (!session) return res.status(404).json({ error: 'Session not found' });
 
     const qIndex = session.currentQuestionIndex;
@@ -296,7 +383,9 @@ sessionsRouter.get('/:joinCode', async (req, res, next) => {
       currentQuestion: question
         ? { index: qIndex, text: question.text, options: question.options }
         : null,
-      reveal: session.status === 'reveal' ? { correctIndex: question?.correctIndex ?? null } : null,
+      reveal: session.status === 'reveal'
+        ? { correctIndex: question?.correctIndex ?? null }
+        : null,
     });
   } catch (err) {
     next(err);

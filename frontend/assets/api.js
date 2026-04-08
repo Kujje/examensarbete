@@ -1,4 +1,4 @@
-export const API_BASE = 'http://localhost:3000';
+export const API_BASE = window.API_BASE || 'http://localhost:3000';
 
 async function parseJson(res) {
   const text = await res.text();

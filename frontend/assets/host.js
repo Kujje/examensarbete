@@ -1,4 +1,4 @@
-import { apiGet, apiPost } from './api.js';
+import { apiGet, apiPost, API_BASE } from './api.js';
 
 const quizSelect = document.getElementById('quizSelect');
 const refreshBtn = document.getElementById('refreshQuizzes');
@@ -22,18 +22,41 @@ let pollTimer = null;
 
 let lastTickedPhaseEndsAt = null;
 let isTicking = false;
+let uiTimer = null;
+let uiPhaseEndsAt = null;
+
+function startLocalCountdown(phaseEndsAt) {
+  uiPhaseEndsAt = phaseEndsAt ? new Date(phaseEndsAt).getTime() : null;
+
+  if (uiTimer) clearInterval(uiTimer);
+
+  uiTimer = setInterval(() => {
+    if (!bigTimerEl || !uiPhaseEndsAt) {
+      if (bigTimerEl) bigTimerEl.textContent = '-';
+      return;
+    }
+    const msLeft = Math.max(0, uiPhaseEndsAt - Date.now());
+    bigTimerEl.textContent = String(Math.ceil(msLeft / 1000));
+  }, 250);
+}
+
+// Socket client (needs CDN script in host.html)
+const socket = window.io ? window.io(API_BASE) : null;
 
 function renderState(state) {
   if (statusBadge) statusBadge.textContent = `status: ${state.status}`;
+
   if (timerBadge) {
     timerBadge.textContent =
       state.timeLeftMs === null ? 'timeLeft: -' : `timeLeft: ${Math.ceil(state.timeLeftMs / 1000)}s`;
   }
+
   if (bigTimerEl) {
     bigTimerEl.textContent =
       state.timeLeftMs === null ? '-' : String(Math.ceil(state.timeLeftMs / 1000));
   }
 
+  // Players list
   playersEl.innerHTML = '';
   for (const p of state.players) {
     const li = document.createElement('li');
@@ -41,10 +64,12 @@ function renderState(state) {
     playersEl.appendChild(li);
   }
 
+  // Question
   if (state.currentQuestion && state.status !== 'finished') {
     const q = state.currentQuestion;
     const opts = q.options.map((o, i) => `<li>${i}: ${o}</li>`).join('');
     const reveal = state.reveal?.correctIndex;
+
     questionBox.innerHTML = `
       <div class="muted">Fråga ${q.index + 1}/${state.quiz.totalQuestions}</div>
       <div><strong>${q.text}</strong></div>
@@ -57,6 +82,7 @@ function renderState(state) {
     questionBox.innerHTML = `<div class="muted">Ingen fråga än.</div>`;
   }
 
+  // Leaderboard
   if (leaderboardEl) {
     const sorted = [...state.players].sort((a, b) => b.score - a.score);
 
@@ -93,8 +119,14 @@ function renderState(state) {
     `;
   }
 
+  // Buttons
   startBtn.disabled = state.status !== 'lobby';
   tickBtn.disabled = !(state.status === 'question' || state.status === 'reveal');
+
+  startLocalCountdown(state.phaseEndsAt);
+
+  // Auto tick
+  tryAutoTick(state).catch(() => {});
 }
 
 async function tryAutoTick(state) {
@@ -119,15 +151,33 @@ async function tryAutoTick(state) {
   }
 }
 
+// Polling fallback (kan tas bort senare)
 async function poll() {
   if (!joinCode) return;
   try {
     const state = await apiGet(`/api/sessions/${joinCode}`);
     renderState(state);
-    await tryAutoTick(state);
   } catch (e) {
     sessionInfoEl.textContent = `Poll error: ${e.message}`;
   }
+}
+
+function bindSocketListeners() {
+  if (!socket) return;
+
+  // State push
+  socket.off('state');
+  socket.on('state', (state) => {
+    if (!state?.joinCode) return;
+    if (state.joinCode !== joinCode) return;
+    renderState(state);
+  });
+
+  // Re-join room after reconnect
+  socket.off('connect');
+  socket.on('connect', () => {
+    if (joinCode) socket.emit('join', joinCode);
+  });
 }
 
 async function loadPublicQuizzes() {
@@ -182,8 +232,15 @@ createSessionBtn.addEventListener('click', async () => {
       });
     }
 
+    // Socket: join + listeners
+    if (socket) {
+      socket.emit('join', joinCode);
+      bindSocketListeners();
+    }
+
+    // Poll fallback
     if (pollTimer) clearInterval(pollTimer);
-    pollTimer = setInterval(poll, 600);
+    pollTimer = setInterval(poll, 1500);
     await poll();
   } catch (e) {
     alert(e.message);
@@ -194,8 +251,6 @@ startBtn.addEventListener('click', async () => {
   try {
     if (!joinCode || !hostCode) return;
     await apiPost(`/api/sessions/${joinCode}/start`, { hostCode });
-    lastTickedPhaseEndsAt = null;
-    await poll();
   } catch (e) {
     alert(e.message);
   }
@@ -205,7 +260,6 @@ tickBtn.addEventListener('click', async () => {
   try {
     if (!joinCode || !hostCode) return;
     await apiPost(`/api/sessions/${joinCode}/tick`, { hostCode });
-    await poll();
   } catch (e) {
     alert(e.message);
   }
